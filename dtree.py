@@ -182,6 +182,29 @@ class DTree(object):
             attributes.extend(node.attributes)
         return attributes
 
+    def rules(self):
+        """
+
+        """
+        return sorted(self._rules(), key=lambda t: len(t))
+
+    def _rules(self, parent=None, previous=()):
+        """
+        Build a CSV TODO
+
+        """
+        # import pdb; pdb.set_trace()
+        rows = []
+        if parent is not None:
+            previous += ((parent.label, self.parent_value), )
+        if self.leaf:
+            previous += ((self.label), )
+            rows.append(previous)
+        else:
+            for node in self.children:
+                rows.extend(node._rules(self, previous))
+        return rows
+
     def __str__(self):
         """
         Recursively build a string representation of the tree starting at the

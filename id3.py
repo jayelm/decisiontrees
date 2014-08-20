@@ -27,14 +27,17 @@ class ID3(object):
         self.parse_csv()
         self.get_distinct_values()
 
-    def create_tree(self, subset=None, parent=None, parent_value=None):
+    def create_tree(self, parent_subset=None, parent=None, parent_value=None,
+                    remaining=None):
         """
         Recursively create the decision tree with the specified subset
         and node positions. Sets the created tree to self.dtree.
 
         Args:
-            subset: the subset of the data to create decision nodes on
-                (defaut None, which is interpreted as using entire CSV data).
+            parent_subset: the subset of the data of the parent
+                to create decision nodes on (defaut None, which is interpreted
+                as using entire CSV data). This is further filtered down in the
+                body of the function
             parent: the parent of the node to be created (default None, which
                 sets the root of the dtree).
             parent_value: the name of the value connecting the parent node and
@@ -43,12 +46,26 @@ class ID3(object):
         """
 
         # Identify the subset of the data used in the igain calculation
-        if subset is None:
+        if parent_subset is None:
             subset = self.data
         else:
-            subset = self.filter_subset(subset, parent.label, parent_value)
+            subset = self.filter_subset(parent_subset,
+                                        parent.label,
+                                        parent_value)
 
+        if remaining is None:
+            remaining = self.attributes
+
+        use_parent = False
         counts = self.attr_counts(subset, self.dependent)
+        if not counts:
+            # Nothing has been found for the given subset. We label the node
+            # based on the parent subset instead. This triggers the elif block
+            # below
+            subset = parent_subset
+            counts = self.attr_counts(subset, self.dependent)
+            use_parent = True
+
         # If every element in the subset belongs to one dependent group, label
         # with that group.
         if len(counts) == 1:  # Only one value of self.dependent detected
@@ -57,7 +74,7 @@ class ID3(object):
                 leaf=True,
                 parent_value=parent_value
             )
-        elif not self.remaining_attributes:
+        elif not remaining or use_parent:
             # If there are no remaining attributes, label with the most
             # common attribute in the subset.
             most_common = max(counts, key=lambda k: counts[k])
@@ -69,7 +86,7 @@ class ID3(object):
         else:
             # Calculate max information gain
             igains = []
-            for attr in self.remaining_attributes:
+            for attr in remaining:
                 igains.append((attr, self.information_gain(subset, attr)))
 
             max_attr = max(igains, key=lambda a: a[1])
@@ -89,11 +106,15 @@ class ID3(object):
             parent.add_child(node)
 
         if not node.leaf:  # Continue recursing
+            # Remove the just used attribute from the remaining list
+            new_remaining = remaining[:]
+            new_remaining.remove(node.label)
             for value in self.values[node.label]:
                 self.create_tree(
-                    subset=subset,
+                    parent_subset=subset,
                     parent=node,
-                    parent_value=value
+                    parent_value=value,
+                    remaining=new_remaining
                 )
 
     def parse_csv(self, dependent_index=-1):
@@ -274,20 +295,6 @@ class ID3(object):
                 values_list.append(val)
         return values_list
 
-    @property
-    def remaining_attributes(self):
-        """
-        Return a list of remaining attributes that have not yet been used as
-        decision nodes in the given tree.
-
-        Returns:
-            A list of unused attributes.
-
-        """
-        if self.dtree is None:
-            return self.attributes
-        return [a for a in self.attributes if a not in self.dtree.attributes]
-
     def __str__(self):
         """
         Return the filename of the ID3 instance, the dependent variable, and
@@ -342,11 +349,18 @@ if __name__ == '__main__':
     parser.add_argument('filename', help='name of the .csv file')
     parser.add_argument('-d', '--decide', action='store_true',
                         help='enter decision REPL for the given tree')
+    parser.add_argument('-r', '--rules', action='store_true',
+                        help='print out individual paths down the tree for'
+                        'binary decisions')  # TODO: add CSV support
+
     args = parser.parse_args()
 
     id3 = ID3(args.filename)
     id3.create_tree()
     print repr(id3)
+
+    if args.rules:
+        print id3.dtree.rules()
 
     if args.decide:
         print
