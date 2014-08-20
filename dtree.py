@@ -103,6 +103,9 @@ class DTree(object):
         val = attrs_dict[self.label]
         for node in self.children:
             if val == node.parent_value:
+                # FIXME
+                # if 'estimated' in node.properties:
+                    # return False
                 return node._decide(attrs_dict)
         raise ValueError("Invalid property found: {0}".format(val))
 
