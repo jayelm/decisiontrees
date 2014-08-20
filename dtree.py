@@ -1,13 +1,8 @@
 """
-Implements a decision tree class, to be used in decision tree construction
-algorithms.
+Implements a basic decision tree class, to be used in decision tree
+construction algorithms.
 
 """
-
-# import matplotlib.pyplot as plt
-
-# FIXME information_gain is (maybe) specific to ID3. Replace with properties
-# dict, then when plotting, annotate all of those
 
 
 class DTree(object):
@@ -15,33 +10,81 @@ class DTree(object):
     A recursively defined decision tree.
 
     """
-    decision_node = dict(boxstyle="sawtooth", fc="0.8")
-    leaf_node = dict(boxstyle="round4", fc="0.8")
-    arrow_args = dict(arrowstyle="<-")
 
-    def __init__(self, attribute, parent_value=None,
-                 information_gain=None, leaf=False,
-                 attribute_order=[]):
-        # FIXME figure out good class design, keep attributes protected
-        self.attribute = attribute
+    def __init__(self, label, parent_value=None, properties={}, leaf=False):
+        """
+        Initialize a decision tree node.
+
+        Args:
+            label: the label of the node, which can either be a decision
+                attribute or a leaf result.
+            parent_value: the name of the link from the current node to its
+                parent (default None, used in cases of root nodes).
+            properties: a dictionary containing various diagnostic properties
+                of the given node (e.g. information gain or entropy) (default
+                empty dictionary).
+            leaf: a boolean indicating whether or not this node is a leaf node
+                (default False).
+        """
+        self.label = label
         self.children = []
         self.parent_value = parent_value
-        self.information_gain = information_gain
+        self.properties = properties
         self.leaf = leaf
-        self.attribute_order = attribute_order
 
     def plot(self, x=1, y=1):
         """
         Recursively plot the given node and its children with matplotlib
 
+        Args:
+            x: the desired width of the plot (default 1).
+            y: the desired height of the plot (default 1).
+        Raises:
+            NotImplementedError: Not yet implemented.
+
+        """
+        raise NotImplementedError
+
+    def _plot(self, xoffset, yoffset):
+        """
+        Plot the given node at the xoffset and yoffset coordinates.
+
+        Args:
+            xoffset: the x coordinate for plotting of the given node.
+            yoffset: the y coordinate for plotting of the given node.
+        Raises:
+            NotImplementedError: Not yet implemented.
+
         """
         raise NotImplementedError
 
     def set_attributes(self, attributes):
+        """
+        Set the correct order of the attributes in the decision tree
+        based on the parsed CSV data.
+
+        Args:
+            attributes: the correctly ordered list of independent attributes
+                from the CSV data.
+
+        """
         self.attribute_order = attributes
 
     def decide(self, attributes):
-        # import pdb; pdb.set_trace()
+        """
+        Make a decision on the dependent variable of the tree given the
+        provided attributes.
+
+        Args:
+            attributes: the list of independent attributes, correctly ordered,
+                with which to make a decision on the dependent value.
+        Returns:
+            A dependent variable representing the decision tree decision.
+        Raises:
+            ValueError: if an invalid property is found which is not
+                represented in the decision tree.
+
+        """
         if len(attributes) != len(self.attribute_order):
             print self.attribute_order
             raise ValueError("attributes supplied does not match data")
@@ -49,22 +92,39 @@ class DTree(object):
         return self._decide(attrs_dict)
 
     def _decide(self, attrs_dict):
+        """
+        Recursively decide using the given attribute/value dictionary.
+
+        Internal function is separated from the more friendly decide() method.
+
+        """
         if self.leaf:
-            return self.attribute
-        val = attrs_dict[self.attribute]
+            return self.label
+        val = attrs_dict[self.label]
         for node in self.children:
             if val == node.parent_value:
                 return node._decide(attrs_dict)
-        raise Exception("Invalid property found: {0}".format(val))
-
-    def _plot(self, xoffset, yoffset):
-        raise NotImplementedError
+        raise ValueError("Invalid property found: {0}".format(val))
 
     def add_child(self, node):
+        """
+        Add the given child node to the list of children of the current node.
+
+        Args:
+            node: the DTree node to be appended as a child.
+
+        """
         self.children.append(node)
 
     @property
     def num_leaves(self):
+        """
+        Return the total number of leaves that exist under the current node.
+
+        Returns:
+            An integer of the number of leaves.
+
+        """
         if self.leaf:
             return 1
         else:
@@ -72,13 +132,37 @@ class DTree(object):
 
     @property
     def num_children(self):
+        """
+        Return the total number of immediate child nodes under the current
+        node.
+
+        Returns:
+            An integer of the number of children.
+
+        """
         return len(self.children)
 
     @property
     def depth(self):
+        """
+        Return the maximum depth of the tree assuming the current node
+        as the parent.
+
+        Returns:
+            An integer calculated from the longest tree branch traversal.
+
+        """
         return self._depth(0)
 
     def _depth(self, init):
+        """
+        Accumulate the depth of the tree at the given node taking into
+        account the previous depth of the tree.
+
+        init is the existing depth accumulated from previous levels of the
+        tree.
+
+        """
         if self.leaf:
             return init
         else:
@@ -86,16 +170,40 @@ class DTree(object):
 
     @property
     def attributes(self):
-        attributes = [self.attribute]
+        """
+        Return all attributes used as decision nodes in the tree.
+
+        Returns:
+            A list of attribute names.
+
+        """
+        attributes = [self.label]
         for node in self.children:
             attributes.extend(node.attributes)
         return attributes
 
     def __str__(self):
-        # TODO improve this string method
-        s = "{0} -- ({1}, {2})".format(
-            str(self.parent_value),
-            str(self.attribute),
+        """
+        Recursively build a string representation of the tree starting at the
+        current node.
+
+        """
+        return "{0} -- ({1}, {2})".format(
+            self.parent_value,
+            self.label,
             ', '.join(str(c) for c in self.children)
         )
-        return s
+
+    def __repr__(self):
+        """
+        Recursively build a string representation of the tree starting at the
+        current node. Differs from __str__ by including additional diagnostic
+        information.
+
+        """
+        return "{0} -- ({1} {2}, {3})".format(
+            self.parent_value,
+            self.label,
+            self.properties,
+            ', '.join(repr(c) for c in self.children)
+        )

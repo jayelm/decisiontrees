@@ -1,5 +1,5 @@
 """
-Implements the ID3 algorithm for construction decision trees.
+Implements the ID3 algorithm for the construction of decision trees.
 
 """
 
@@ -11,50 +11,63 @@ from collections import Counter
 
 class ID3(object):
     def __init__(self, filename):
+        """
+        Initialize the ID3 instance from the given filename by parsing CSV
+        data and setting necessary attributes.
+
+        Args:
+            filename: relative or absolute filepath to CSV file. CSV must
+            follow format specified in README.
+        Returns:
+            An ID3 instance ready for decision tree learning.
+
+        """
         self.filename = filename
         self.dtree = None
-
-    def learn(self):
         self.parse_csv()
         self.get_distinct_values()
-        self.create_tree()
 
     def create_tree(self, subset=None, parent=None, parent_value=None):
         """
-        Recursively create the decision tree.
+        Recursively create the decision tree with the specified subset
+        and node positions. Sets the created tree to self.dtree.
 
-        OPTIMIZE: Possibly can be optimized by setting root node at beginning
+        Args:
+            subset: the subset of the data to create decision nodes on
+                (defaut None, which is interpreted as using entire CSV data).
+            parent: the parent of the node to be created (default None, which
+                sets the root of the dtree).
+            parent_value: the name of the value connecting the parent node and
+                the current node (default None).
+
         """
-
-        # pdb.set_trace()
 
         # Identify the subset of the data used in the igain calculation
         if subset is None:
-            # Initial run, use all data
             subset = self.data
         else:
-            # Filter the subset down for the given parent attributes
-            subset = self.filter_subset(subset, parent.attribute, parent_value)
+            subset = self.filter_subset(subset, parent.label, parent_value)
 
         counts = self.attr_counts(subset, self.dependent)
         # If every element in the subset belongs to one dependent group, label
         # with that group.
         if len(counts) == 1:  # Only one value of self.dependent detected
             node = dtree.DTree(
-                attribute=counts.keys()[0],
+                label=counts.keys()[0],
                 leaf=True,
                 parent_value=parent_value
             )
-        elif not self.remaining_attributes:  # OPTIMIZE by setting attribute
-            # Also, if there are no remaining attributes, label with the most
+        elif not self.remaining_attributes:
+            # If there are no remaining attributes, label with the most
             # common attribute in the subset.
             most_common = max(counts, key=lambda k: counts[k])
             node = dtree.DTree(
-                attribute=most_common,
+                label=most_common,
                 leaf=True,
                 parent_value=parent_value
             )
         else:
+            # Calculate max information gain
             igains = []
             for attr in self.remaining_attributes:
                 igains.append((attr, self.information_gain(subset, attr)))
@@ -64,19 +77,19 @@ class ID3(object):
             # Create the decision tree node
             node = dtree.DTree(
                 max_attr[0],
-                information_gain=max_attr[1],
+                properties={'information_gain': max_attr[1]},
                 parent_value=parent_value
             )
 
         if parent is None:
+            # Set known order of attributes for dtree decisions
             node.set_attributes(self.attributes)
             self.dtree = node
-            # Set known order of attributes for learning
         else:
             parent.add_child(node)
 
         if not node.leaf:  # Continue recursing
-            for value in self.values[node.attribute]:
+            for value in self.values[node.label]:
                 self.create_tree(
                     subset=subset,
                     parent=node,
@@ -88,9 +101,20 @@ class ID3(object):
         Set the object's attributes and data, where attributes is a list of
         attributes and data is an array of row dictionaries keyed by attribute.
 
-        Also sets the dependent variable, which defaults to the last one
+        Also sets the dependent variable, which defaults to the last one. An
+        option to change the position of this dependent variable has not yet
+        been implemented.
+
+        Args:
+            dependent_index: the index to be specified as the dependent
+                variable (default -1).
+        Raises:
+            NotImplementedError: If dependent_index is specified, since I
+                haven't implemented that yet.
 
         """
+        if dependent_index != -1:
+            raise NotImplementedError
 
         with open(self.filename) as fin:
             reader = csv.reader(fin)
@@ -107,16 +131,143 @@ class ID3(object):
 
     def get_distinct_values(self):
         """
-        Return a dictionary with attribute keys and sets corresponding to the
-        unique items in each attribute.
+        Get the distinct values for each attribute in the CSV data.
+
+        Returns:
+            A dictionary with attribute keys and set values corresponding to
+            the unique items in each attribute.
+
         """
         values = {}
         for attr in self.all_attributes:  # Use all attributes because ugly
             values[attr] = set(r[attr] for r in self.data)
         self.values = values
 
+    def filter_subset(self, subset, attr, value):
+        """
+        Filter a subset of CSV data further by selecting only the rows of
+        subset which have the given attribute and value.
+
+        Args:
+            subset: the subset of the CSV data to filter upon.
+            attr: the attribute of the value to filter upon.
+            value: the value to filter upon.
+        Returns:
+            A list of the filtered rows according to the attribute and value.
+
+        """
+        return [r for r in subset if r[attr] == value]
+
+    def information_gain(self, subset, attr):
+        """
+        Calculate possible information gain from splitting the given subset
+        with the specified attribute.
+
+        Args:
+            subset: the subset with which to calculate information gain.
+            attr: the attribute used to calculate information gain.
+        Returns:
+            A float of the total information gain from the given split.
+
+        """
+        gain = self.get_base_entropy(subset)
+        counts = self.attr_counts(subset, attr)
+        total = float(sum(counts.values()))  # Coerce to float for division
+        for value in self.values[attr]:
+            gain += -((counts[value]/total)*self.entropy(subset, attr, value))
+        return gain
+
+    def get_base_entropy(self, subset):
+        """
+        Get overall entropy of the subset based on the dependent variable.
+
+        Note: Although the current implementation of this ID3 algorithm only
+        supports binary dependent variables, the code for base entropy is
+        written (with a for loop, instead of a binary choice) so that it may
+        be easily expanded to multivariate calculations later.
+
+        Args:
+            subset: the subset with which to calculate base entropy.
+        Returns:
+            A float of the base entropy.
+
+        """
+        return self.entropy(subset, self.dependent, None, base=True)
+
+    def entropy(self, subset, attr, value, base=False):
+        """
+        Calculate the entropy of the given attribute/value pair from the
+        given subset.
+
+        Args:
+            subset: the subset with which to calculate entropy.
+            attr: the attribute of the value.
+            value: the value used in calculation.
+            base: whether or not to calculate base entropy based solely on the
+                dependent value (default False).
+
+        Returns:
+            A float of the entropy of the given value.
+
+        """
+        counts = self.value_counts(subset, attr, value, base)
+        total = float(sum(counts.values()))  # Coerce to float division
+        entropy = 0
+        for dv in counts:  # For each dependent value
+            proportion = counts[dv] / total
+            entropy += -(proportion*math.log(proportion, 2))
+        return entropy
+
+    def value_counts(self, subset, attr, value, base=False):
+        """
+        Get the number of currences per value of the dependent variable when
+        the given attribute is equal to the given value.
+
+        FIXME: Can attr/value be eliminated??
+
+        Args:
+            subset: the subset with which to act upon.
+            attr: the attribute of the value.
+            value: the value with which to track counts.
+            base: whether or not to calculate values based on the dependent
+                value (default False).
+        Returns:
+            A Counter instance detailing the number of occurrences per
+            dependent variable.
+
+        """
+        counts = Counter()
+        for row in subset:
+            if row[attr] == value or base:
+                counts[row[self.dependent]] += 1
+        return counts
+
+    def attr_counts(self, subset, attr):
+        """
+        Get the number of occurrences per value of the given attribute
+
+        Args:
+            subset: the subset with which to act upon.
+            attr: the selected attribute.
+        Returns:
+            A Counter instance detailing the number of occurrences per
+            attribute value.
+
+        """
+        counts = Counter()
+        for row in subset:
+            counts[row[attr]] += 1
+        return counts
+
     @property
-    def distinct_values_list(self):
+    def distinct_values(self):
+        """
+        Returns a readable list of all values in the CSV data set.
+
+        Returns:
+            A flattened list of all distinct values.
+
+        """
         values_list = []
         for s in self.values.values():
             for val in s:
@@ -125,72 +276,63 @@ class ID3(object):
 
     @property
     def remaining_attributes(self):
+        """
+        Return a list of remaining attributes that have not yet been used as
+        decision nodes in the given tree.
+
+        Returns:
+            A list of unused attributes.
+
+        """
         if self.dtree is None:
             return self.attributes
         return [a for a in self.attributes if a not in self.dtree.attributes]
 
-    def filter_subset(self, subset, attr, value):
-        """
-        Return a subset of the rows of the training data where the given
-        attribute has the given value. Used in the recursive construction of
-        the decision tree.
-
-        """
-        return [r for r in subset if r[attr] == value]
-
-    def information_gain(self, subset, attr):
-        gain = self.get_base_entropy(subset)
-        occs = self.attr_counts(subset, attr)
-        total = float(sum(occs.values()))  # Coerce to float
-        for value in self.values[attr]:
-            gain += -((occs[value]/total)*self.entropy(subset, attr, value))
-        return gain
-
-    def get_base_entropy(self, subset):
-        # Not a special case
-        return self.entropy(subset, self.dependent, True)
-
-    def entropy(self, subset, attr, value):
-        occs = self.value_occurrences(subset, attr, value)
-        total = float(sum(occs.values()))  # Coerce to float
-        entropy = 0
-        for dv in occs:  # For each dependent value
-            proportion = occs[dv] / total
-            entropy += -(proportion*math.log(proportion, 2))
-        return entropy
-
-    def value_occurrences(self, subset, attr, value):
-        """
-        Return a dictionary (a Counter, specifically) detailing the
-        number of occurrences per value of the dependent variable when the
-        given attribute is equal to the given value.
-        """
-        counts = Counter()
-        # FIXME: Using subset creates copies unecessarily. Any way to
-        # remedy this with a more referential approach?
-        for row in subset:
-            # This is a terrible check, optimize somehow.
-            if row[attr] == value or isinstance(value, bool):
-                counts[row[self.dependent]] += 1
-        return counts
-
-    def attr_counts(self, subset, attr):
-        """
-        Return a dictionary (a Counter, specifically) detailing the number of
-        occurrences per value of the given attribute
-        """
-        counts = Counter()
-        for row in subset:
-            counts[row[attr]] += 1
-        return counts
-
     def __str__(self):
         """
-        String representation of the ID3 algorithm assumes user simply wants
-        the tree representation.
+        Return the filename of the ID3 instance, the dependent variable, and
+        the string representation of the ID3 decision tree.
 
         """
-        return str(id3.dtree)
+        return "ID3 for {0}:\nDependent variable: {1}\n{2}".format(
+            self.filename,
+            self.dependent,
+            self.dtree
+        )
+
+    def __repr__(self):
+        """
+        Return the filename of the ID3 instance and other useful diagnostics.
+
+        """
+        return ("ID3 for {0}:\nDependent variable: {1}\n{2}\nRows: {3}\n" +
+                "Values: {4}\nBase Data Entropy: {5}").format(
+            self.filename,
+            self.dependent,
+            repr(self.dtree),
+            len(self.data),
+            self.values,
+            self.get_base_entropy(self.data)
+        )
+
+
+def decision_repl(id3):
+    """
+    An interactive REPL for making decisions based on the created decision
+    tree.
+
+    """
+    print
+    print ','.join("{{{0}}}".format(a) for a in id3.attributes)
+    print "Decision tree REPL. Enter above parameters separated by commas,"
+    print "no spaces between commas or brackets."
+    while True:
+        x = raw_input('> ').split(',')
+        print "Decision for {0}:".format(x)
+        try:
+            print id3.dtree.decide(x)
+        except Exception as e:
+            print "Error with decision: {0}".format(e)
 
 
 if __name__ == '__main__':
@@ -198,10 +340,14 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('filename', help='name of the .csv file')
+    parser.add_argument('-d', '--decide', action='store_true',
+                        help='enter decision REPL for the given tree')
     args = parser.parse_args()
 
     id3 = ID3(args.filename)
-    id3.learn()
-    print id3
-    print id3.dtree.decide(['Rain', 'Mild', 'High', 'Strong'])
-    print id3.dtree.decide(['Sunny', 'Mild', 'Normal', 'Strong'])
+    id3.create_tree()
+    print repr(id3)
+
+    if args.decide:
+        print
+        decision_repl(id3)
