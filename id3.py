@@ -9,6 +9,7 @@ import math
 from collections import Counter
 import pdb
 
+
 class ID3(object):
     def __init__(self, filename):
         self.filename = filename
@@ -17,7 +18,6 @@ class ID3(object):
         self.parse_csv()
         self.get_distinct_values()
 
-        # FIXME eventually remove dependent, and manually delete
         self.create_tree()
 
     def create_tree(self, parent=None, parent_value=None):
@@ -26,7 +26,7 @@ class ID3(object):
 
         OPTIMIZE: Possibly can be optimized by setting root node at beginning
         """
-        
+
         if parent_value == 'Sunny':
             pdb.set_trace()
 
@@ -74,7 +74,6 @@ class ID3(object):
                 print "TESTING FOR {0}".format(value)
                 self.create_tree(parent=node, parent_value=value)
 
-
     def parse_csv(self, dependent_index=-1):
         """
         Set the object's attributes and data, where attributes is a list of
@@ -96,7 +95,6 @@ class ID3(object):
         self.attributes = [a for a in attributes if a != self.dependent]
         self.all_attributes = attributes
         self.data = data
-
 
     def get_distinct_values(self):
         """
@@ -120,9 +118,7 @@ class ID3(object):
     def remaining_attributes(self):
         if self.dtree is None:
             return self.attributes
-        return [a for a in self.attributes if
-                a not in self.dtree.attributes and
-                a != self.dependent]
+        return [a for a in self.attributes if a not in self.dtree.attributes]
 
     def get_subset(self, attr, value):
         """
@@ -133,7 +129,6 @@ class ID3(object):
         """
         return [r for r in self.data if r[attr] == value]
 
-
     def information_gain(self, subset, attr):
         gain = self.get_base_entropy(subset)
         occs = self.attr_counts(subset, attr)
@@ -142,11 +137,9 @@ class ID3(object):
             gain += -((occs[value]/total)*self.entropy(subset, attr, value))
         return gain
 
-
     def get_base_entropy(self, subset):
         # Not a special case
         return self.entropy(subset, self.dependent, True)
-        
 
     def entropy(self, subset, attr, value):
         occs = self.value_occurrences(subset, attr, value)
@@ -157,12 +150,11 @@ class ID3(object):
             entropy += -(proportion*math.log(proportion, 2))
         return entropy
 
-
     def value_occurrences(self, subset, attr, value):
         """
         Return a dictionary (a Counter, specifically) detailing the
-        number of occurrences per value of the dependent variable when the given
-        attribute is equal to the given value.
+        number of occurrences per value of the dependent variable when the
+        given attribute is equal to the given value.
         """
         counts = Counter()
         # FIXME: Using subset creates copies unecessarily. Any way to
@@ -186,7 +178,6 @@ class ID3(object):
 
 if __name__ == '__main__':
     import argparse
-    import sys
 
     parser = argparse.ArgumentParser()
     parser.add_argument('filename', help='name of the .csv file')
@@ -194,4 +185,3 @@ if __name__ == '__main__':
 
     id3 = ID3(args.filename)
     print str(id3.dtree)
-    
