@@ -87,7 +87,7 @@ class DTree(object):
         """
         if len(attributes) != len(self.attribute_order):
             print self.attribute_order
-            raise ValueError("attributes supplied does not match data")
+            raise ValueError("supplied attributes do not match data")
         attrs_dict = dict(zip(self.attribute_order, attributes))
         return self._decide(attrs_dict)
 
