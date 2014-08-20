@@ -81,7 +81,8 @@ class ID3(object):
             node = dtree.DTree(
                 label=most_common,
                 leaf=True,
-                parent_value=parent_value
+                parent_value=parent_value,
+                properties={'estimated': True}
             )
         else:
             # Calculate max information gain

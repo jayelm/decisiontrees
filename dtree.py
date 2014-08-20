@@ -184,13 +184,22 @@ class DTree(object):
 
     def rules(self):
         """
+        Return all of the node's tree branch traversals, which
+        can be used as if/then rules for simulating the decision process.
+
+        Returns:
+            A 2d list of all known tree branch traversals.
 
         """
-        return sorted(self._rules(), key=lambda t: len(t))
+        return sorted(
+            self._rules(),
+            key=lambda t: (len(t), [p[1] for p in t if isinstance(p, tuple)])
+        )
 
     def _rules(self, parent=None, previous=()):
         """
-        Build a CSV TODO
+        Return a 2d list of decision rules with the given parent node and
+        the tuple of previous nodes.
 
         """
         # import pdb; pdb.set_trace()
@@ -211,7 +220,7 @@ class DTree(object):
         current node.
 
         """
-        return "{0} -- ({1}, {2})".format(
+        return "--{0}--({1}, {2})".format(
             self.parent_value,
             self.label,
             ', '.join(str(c) for c in self.children)
@@ -224,7 +233,7 @@ class DTree(object):
         information.
 
         """
-        return "{0} -- ({1} {2}, {3})".format(
+        return "--{0}--({1} {2}, {3})".format(
             self.parent_value,
             self.label,
             self.properties,
