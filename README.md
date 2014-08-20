@@ -17,12 +17,23 @@ attribute values:
 
     python id3.py filename.csv --decide
 
-That's currently pretty much all there is to it, where `--decide` is a flag
-indicating REPL functionality. See `python id3.py --help` for more details.
+The decision rules for the decision tree can also be printed with the `--rules` flag.
+
+Learning from testing and training sets is also supported. Try this as test data:
+
+    python id3.py example_data/breast-cancer-training.csv -t example_data/breast-cancer-testing.csv
+
+Support for outputting testing set predictions to CSV will be added soon.
+
+See `python id3.py --help` for more details.
 
 ### dtree.py
 
 A very simple recursively defined class used to represent decision trees.
+
+### example_data
+
+Has a couple of data sets of varying complexity. Breast cancer data taken from [UCI Machine Learning](http://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/) and modified to fit script requirements.
 
 ## Todo
 
