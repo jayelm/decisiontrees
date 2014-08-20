@@ -201,4 +201,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     id3 = ID3(args.filename)
-    print str(id3.dtree)
+    id3.learn()
+    print id3
+    print id3.dtree.decide(['Rain', 'Mild', 'High', 'Strong'])
+    print id3.dtree.decide(['Sunny', 'Mild', 'Normal', 'Strong'])
