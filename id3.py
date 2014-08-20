@@ -10,7 +10,7 @@ from collections import Counter
 
 
 class ID3(object):
-    def __init__(self, filename):
+    def __init__(self, training_file):
         """
         Initialize the ID3 instance from the given filename by parsing CSV
         data and setting necessary attributes.
@@ -22,7 +22,7 @@ class ID3(object):
             An ID3 instance ready for decision tree learning.
 
         """
-        self.filename = filename
+        self.training_file = training_file
         self.dtree = None
         self.parse_csv()
         self.get_distinct_values()
@@ -138,18 +138,64 @@ class ID3(object):
         if dependent_index != -1:
             raise NotImplementedError
 
-        with open(self.filename) as fin:
-            reader = csv.reader(fin)
-            attributes = reader.next()
-            data = []
-            for row in reader:
-                row = dict(zip(attributes, row))
-                data.append(row)
+        reader = csv.reader(self.training_file)
+        attributes = reader.next()
+        data = []
+        for row in reader:
+            row = dict(zip(attributes, row))
+            data.append(row)
+        self.training_file.close()
 
         self.dependent = attributes[dependent_index]
         self.attributes = [a for a in attributes if a != self.dependent]
         self.all_attributes = attributes
         self.data = data
+
+    def test_file(self, testing_file, csv=None):
+        """
+        Test the given CSV file on this instance's ID3 decision tree, either
+        printing decisions to stdout or writing to a csv file.
+
+        Note: Testing CSV files must have the same format as training CSV
+        files, including column order. Repeated headers are optional.
+
+        Args:
+            testing_file: testing CSV file. Testing CSV files must have the
+                same format as the training CSV files! this function will
+                automatically close the file after usage.
+            csv: if specified, will write to the given CSV file.
+
+        """
+
+        import csv
+        reader = csv.reader(testing_file)
+        first_row = reader.next()
+        # If first row
+        if first_row == self.all_attributes or first_row == self.attributes:
+            test_data = []
+        else:
+            test_data = [dict(zip(self.all_attributes, first_row))]
+        for row in reader:
+            row = dict(zip(self.all_attributes, row))
+            test_data.append(row)
+
+        testing_file.close()
+
+        correct = 0.  # Keep track of statistics
+        for row in test_data:
+            formatted = [row[a] for a in self.attributes]
+            decision = self.dtree.decide(formatted)
+            try:
+                expected_str = "(expected {0})".format(row[self.dependent])
+                if row[self.dependent] == decision:
+                    correct += 1
+                    expected_str += ", CORRECT"
+                else:
+                    expected_str += ", INCORRECT"
+            except KeyError:
+                expected_str = ""
+            print "{0} -> {1} {2}".format(formatted, decision, expected_str)
+        print "% correct: {0}".format(correct/len(test_data))
 
     def get_distinct_values(self):
         """
@@ -303,7 +349,7 @@ class ID3(object):
 
         """
         return "ID3 for {0}:\nDependent variable: {1}\n{2}".format(
-            self.filename,
+            self.training_file.name,
             self.dependent,
             self.dtree
         )
@@ -315,7 +361,7 @@ class ID3(object):
         """
         return ("ID3 for {0}:\nDependent variable: {1}\n{2}\nRows: {3}\n" +
                 "Values: {4}\nBase Data Entropy: {5}").format(
-            self.filename,
+            self.training_file.name,
             self.dependent,
             repr(self.dtree),
             len(self.data),
@@ -345,9 +391,15 @@ def decision_repl(id3):
 
 if __name__ == '__main__':
     import argparse
+    import pprint
+    import sys
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('filename', help='name of the .csv file')
+    parser.add_argument('training_file', type=argparse.FileType('r'),
+                        help='name of the (training) .csv file')
+    parser.add_argument('-t', '--testing_file', nargs='?', const=None,
+                        type=argparse.FileType('r'),
+                        help='name of the testing .csv file')
     parser.add_argument('-d', '--decide', action='store_true',
                         help='enter decision REPL for the given tree')
     parser.add_argument('-r', '--rules', action='store_true',
@@ -355,13 +407,18 @@ if __name__ == '__main__':
                         'binary decisions')  # TODO: add CSV support
 
     args = parser.parse_args()
+    if args.testing_file is None:
+        sys.exit('id3.py: error: testing file not specified')
 
-    id3 = ID3(args.filename)
+    id3 = ID3(args.training_file)
     id3.create_tree()
     print repr(id3)
 
+    print args.testing_file
+    id3.test_file(args.testing_file)
+
     if args.rules:
-        print id3.dtree.rules()
+        pprint.pprint(id3.dtree.rules(), width=400)
 
     if args.decide:
         print
