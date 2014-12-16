@@ -187,7 +187,6 @@ if __name__ == '__main__':
     id3.create_tree()
     print repr(id3)
 
-
     if args.rules:
         pprint.pprint(id3.rules(), width=400)
 
